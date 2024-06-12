@@ -68,27 +68,22 @@ void server_send(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
 */
 void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
     int ack, duplicate_acks = 0;
-    int prev_ack = -1;
+    int prev_ack;
 
     for (int i = 0; i < *cwnd; ++i) {
         ssize_t bytes_received = recv(client_fd, &ack, sizeof(ack), 0);
-        if (bytes_received <= 0) {
-            perror("Receive failed");
-            return;
-        }
-        printf("ACK: ack_num = %d\n", ack + 1);
+        printf("ACK: ack_num = %d\n", ack);
 
         if(ack == prev_ack){
             duplicate_acks++;
-            if(duplicate_acks == 3){
+            if(duplicate_acks == 2){
                 printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", ack, *ssthresh);
             }
         } else{
             duplicate_acks = 0;
         }
-
         prev_ack = ack;
-        *last_acked = ack;
+        // *last_acked = ack;
     }
     *cwnd  = *cwnd * 2;
 }

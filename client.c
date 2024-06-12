@@ -21,9 +21,6 @@ int main(int argc , char *argv[]){
     int sockfd, clientfd;
     struct sockaddr_in server_addr, client_addr;
     char recv_msg[BUFFER_SIZE];
-    int rcv_data;
-    int expected_num = 3;
-    int ack = 0;
 
     //Create socket.
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -42,28 +39,30 @@ int main(int argc , char *argv[]){
     printf("%s", recv_msg);
 
     // Receive data and send ACK.
-
-    bool isPacketLose = false;
+    bool isPacketLoss = false;
+    int rcv_data;
+    int ack = 0;
+    int packetLossNum;
 
     while(1){
-        ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);
-        if(data_received > 0){
-            if(isPacketLose == true){
-                ack = expected_num;
-                send(sockfd, &ack, sizeof(ack), 0);                
+        ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);  
+        if(rcv_data == 7 || rcv_data == 12){
+            if(isPacketLoss == false){
+                packetLossNum = rcv_data;
+                isPacketLoss = true;
+                send(sockfd, &rcv_data, sizeof(rcv_data), 0);   
             } else{
-                printf("Received: seq_num = %d\n", rcv_data);
-                ack = rcv_data;
-                send(sockfd, &ack, sizeof(ack), 0);
-                expected_num = ack + 1;
-            }
-        } else if(data_received == 0){
-            break;
+                send(sockfd, &packetLossNum, sizeof(packetLossNum), 0);
+            }        
+            printf("Loss: seq_num: %d\n", rcv_data);   
         } else{
-            isPacketLose = true;
-            printf("Loss: seq_num: %d\n", expected_num);
-            ack = expected_num;
-            send(sockfd, &ack, sizeof(ack), 0);
+            ack = rcv_data + 1;
+            printf("Received: seq_num = %d\n", rcv_data);
+            if(isPacketLoss == true){
+                send(sockfd, &packetLossNum, sizeof(packetLossNum), 0);
+            } else{
+                send(sockfd, &ack, sizeof(ack), 0);
+            }
         }
     }
 
