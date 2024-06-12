@@ -43,6 +43,7 @@ void server_send(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
             data++; 
         }
     }
+
     *last_acked = data;
 }
 
@@ -77,35 +78,19 @@ void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
         }
         printf("ACK: ack_num = %d\n", ack + 1);
 
-        // TODO: Detect if 3 duplicate ACK occurs
-        // TODO: Update cwnd and ssthresh
-        // Detect if 3 duplicate ACKs occur
-        if (ack == prev_ack) {
+        if(ack == prev_ack){
             duplicate_acks++;
-            if (duplicate_acks == 3) {
+            if(duplicate_acks == 3){
                 printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", ack, *ssthresh);
-                // *ssthresh = *cwnd / 2;
-                // *cwnd = *ssthresh + 3;
-                // duplicate_acks = 0;
             }
-        } else {
-            duplicate_acks = 0; 
-            prev_ack = ack;
-            if (*cwnd < *ssthresh) {
-                // Slow start phase
-                (*cwnd)++;
-            } else {
-                // Congestion avoidance phase
-                (*cwnd)++;
-                if (*cwnd > *ssthresh) {
-                    (*cwnd)--;
-                }
-            }
+        } else{
+            duplicate_acks = 0;
         }
 
         prev_ack = ack;
         *last_acked = ack;
     }
+    *cwnd  = *cwnd * 2;
 }
 
 /*

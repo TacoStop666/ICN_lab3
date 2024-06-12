@@ -12,6 +12,9 @@
  * Task2
  * Continuously receive data from Server and send back ACK.
 */
+
+extern bool packet_loss();
+
 #define BUFFER_SIZE 1024
 
 int main(int argc , char *argv[]){   
@@ -19,6 +22,7 @@ int main(int argc , char *argv[]){
     struct sockaddr_in server_addr, client_addr;
     char recv_msg[BUFFER_SIZE];
     int rcv_data;
+    int expected_num = 3;
     int ack = 0;
 
     //Create socket.
@@ -39,14 +43,27 @@ int main(int argc , char *argv[]){
 
     // Receive data and send ACK.
 
+    bool isPacketLose = false;
+
     while(1){
         ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);
         if(data_received > 0){
-            printf("Received: seq_num =  %d\n", rcv_data);
-            ack = rcv_data;
-            send(sockfd, &ack, sizeof(ack), 0);
-        } else{
+            if(isPacketLose == true){
+                ack = expected_num;
+                send(sockfd, &ack, sizeof(ack), 0);                
+            } else{
+                printf("Received: seq_num = %d\n", rcv_data);
+                ack = rcv_data;
+                send(sockfd, &ack, sizeof(ack), 0);
+                expected_num = ack + 1;
+            }
+        } else if(data_received == 0){
             break;
+        } else{
+            isPacketLose = true;
+            printf("Loss: seq_num: %d\n", expected_num);
+            ack = expected_num;
+            send(sockfd, &ack, sizeof(ack), 0);
         }
     }
 
