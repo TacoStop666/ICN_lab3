@@ -39,17 +39,17 @@ int main(int argc , char *argv[]){
 
     // Receive data and send ACK.
 
-    // ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);
-
-    while ((bytes_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0)) > 0) {
-        printf("Received: seq_num =  %d\n", rcv_data);
-        ack = rcv_data;
-        send(sockfd, &ack, sizeof(ack), 0);
+    while(1){
+        ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);
+        if(data_received > 0){
+            printf("Received: seq_num =  %d\n", rcv_data);
+            ack = rcv_data;
+            send(sockfd, &ack, sizeof(ack), 0);
+        } else{
+            break;
+        }
     }
 
-    if (bytes_received < 0) {
-        perror("Receive failed");
-    }
     // Close the socket
     close(sockfd);
     return 0;

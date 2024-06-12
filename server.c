@@ -24,8 +24,15 @@
 extern bool packet_loss();
 
 // *last_acked = 2
-void server_send(int client_fd, int *cwnd, int *last_acked) {
+void server_send(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
     int data = *last_acked; 
+
+    if(*cwnd < *ssthresh){
+        printf("State: slow start (cwnd = %d), ssthresh = %d\n", *cwnd, *ssthresh);
+    } else{
+        printf("State: congestion avoidance (cwnd = %d), ssthresh = %d\n", *cwnd, *ssthresh);
+    }
+
     for (int i = 0; i < *cwnd; ++i) {
         if (!packet_loss()) {
             data++; 
@@ -62,8 +69,6 @@ void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
     int ack, duplicate_acks = 0;
     int prev_ack = -1;
 
-    // printf("State: slow start (cwnd = %d), ssthresh = %d\n", *cwnd, *ssthresh);
-
     for (int i = 0; i < *cwnd; ++i) {
         ssize_t bytes_received = recv(client_fd, &ack, sizeof(ack), 0);
         if (bytes_received <= 0) {
@@ -74,6 +79,32 @@ void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
 
         // TODO: Detect if 3 duplicate ACK occurs
         // TODO: Update cwnd and ssthresh
+        // Detect if 3 duplicate ACKs occur
+        if (ack == prev_ack) {
+            duplicate_acks++;
+            if (duplicate_acks == 3) {
+                printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", ack, *ssthresh);
+                // *ssthresh = *cwnd / 2;
+                // *cwnd = *ssthresh + 3;
+                // duplicate_acks = 0;
+            }
+        } else {
+            duplicate_acks = 0; 
+            prev_ack = ack;
+            if (*cwnd < *ssthresh) {
+                // Slow start phase
+                (*cwnd)++;
+            } else {
+                // Congestion avoidance phase
+                (*cwnd)++;
+                if (*cwnd > *ssthresh) {
+                    (*cwnd)--;
+                }
+            }
+        }
+
+        prev_ack = ack;
+        *last_acked = ack;
     }
 }
 
@@ -130,8 +161,10 @@ int main(int argc, char* argv[]) {
     int ssthresh = SSTHRESH;
     int last_acked = 2;
 
-    server_send(clientfd, &cwnd, &last_acked);
-    server_receive(clientfd, &cwnd, &ssthresh, &last_acked);
+    for(int i = 0;i<2;i++){
+        server_send(clientfd, &cwnd, &ssthresh, &last_acked);
+        server_receive(clientfd, &cwnd, &ssthresh, &last_acked);
+    }
 
     // Close the socket.
     close(clientfd);
