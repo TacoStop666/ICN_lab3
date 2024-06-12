@@ -1,4 +1,10 @@
 #include "header.h"
+
+#define CWND 4
+#define SSTHRESH 8
+#define DATA_SIZE 1024
+#define ROUND 10
+
 /*
  * @description
  * Write your server's send function here.
@@ -14,7 +20,24 @@
  * 2. last_acked: Previous acknowledge packets.
  * 3. cwnd: congestion window size
 */
-void server_send() {}
+
+extern bool packet_loss();
+
+// *last_acked = 2
+void server_send(int client_fd, int *cwnd, int *last_acked) {
+    int data = *last_acked; 
+    for (int i = 0; i < *cwnd; ++i) {
+        if (!packet_loss()) {
+            data++; 
+            printf("Send: seq_num = %d\n", data);
+            send(client_fd, &data, sizeof(data), 0); 
+        } else {
+            printf("Packet loss simulated for sequence %d\n", data + 1); 
+            data++; 
+        }
+    }
+    *last_acked = data;
+}
 
 /*
  * @description
@@ -35,7 +58,24 @@ void server_send() {}
  * 3. ssthresh: slow start threshold
  * 4. cwnd: congestion window size
 */
-void server_receive() {}
+void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
+    int ack, duplicate_acks = 0;
+    int prev_ack = -1;
+
+    // printf("State: slow start (cwnd = %d), ssthresh = %d\n", *cwnd, *ssthresh);
+
+    for (int i = 0; i < *cwnd; ++i) {
+        ssize_t bytes_received = recv(client_fd, &ack, sizeof(ack), 0);
+        if (bytes_received <= 0) {
+            perror("Receive failed");
+            return;
+        }
+        printf("ACK: ack_num = %d\n", ack + 1);
+
+        // TODO: Detect if 3 duplicate ACK occurs
+        // TODO: Update cwnd and ssthresh
+    }
+}
 
 /*
  * @description
@@ -58,20 +98,44 @@ void server_receive() {}
  *      }
 */
 int main(int argc, char* argv[]) {
+    int sockfd, clientfd, len;
+    struct sockaddr_in server_addr, client_addr;
+    char message[] = "Hi, I'm server 111062335...\n";
+
     // Create TCP socket
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     // Set up server's address.
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(45525); // port number
+    server_addr.sin_addr.s_addr = INADDR_ANY; // bind to any available IP address
 
     //Bind socket to the address.
-    
+    bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+
     //Listening the socket.
-    
+    listen(sockfd, 5);
+
     //Accept the connect request.
+    len = sizeof(client_addr);
+    clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &len);
+
+    printf("New connection\n");
 
     // Send 1 message to client.
+    send(clientfd, message, strlen(message), 0);
 
     // Start congestion control
+    int cwnd = CWND;
+    int ssthresh = SSTHRESH;
+    int last_acked = 2;
+
+    server_send(clientfd, &cwnd, &last_acked);
+    server_receive(clientfd, &cwnd, &ssthresh, &last_acked);
 
     // Close the socket.
+    close(clientfd);
+    close(sockfd);
+
     return 0;
 }

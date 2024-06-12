@@ -12,16 +12,45 @@
  * Task2
  * Continuously receive data from Server and send back ACK.
 */
-int main(int argc , char *argv[])
-{   
+#define BUFFER_SIZE 1024
+
+int main(int argc , char *argv[]){   
+    int sockfd, clientfd;
+    struct sockaddr_in server_addr, client_addr;
+    char recv_msg[BUFFER_SIZE];
+    int rcv_data;
+    int ack = 0;
+
     //Create socket.
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     //Set up server's address.
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(45525);
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     //Connect to server's socket.
-    
-    // Receive 1 message and print it out.
+    connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    //Receive message and print it out.
+    ssize_t bytes_received = recv(sockfd, recv_msg, sizeof(recv_msg), 0);
+    recv_msg[bytes_received] = '\0';
+    printf("%s", recv_msg);
 
     // Receive data and send ACK.
+
+    // ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);
+
+    while ((bytes_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0)) > 0) {
+        printf("Received: seq_num =  %d\n", rcv_data);
+        ack = rcv_data;
+        send(sockfd, &ack, sizeof(ack), 0);
+    }
+
+    if (bytes_received < 0) {
+        perror("Receive failed");
+    }
+    // Close the socket
+    close(sockfd);
     return 0;
 }
