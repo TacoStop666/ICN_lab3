@@ -13,8 +13,6 @@
  * Continuously receive data from Server and send back ACK.
 */
 
-extern bool packet_loss();
-
 #define BUFFER_SIZE 1024
 
 int main(int argc , char *argv[]){   
@@ -47,6 +45,7 @@ int main(int argc , char *argv[]){
     while(1){
         ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);  
         if(rcv_data == 7 || rcv_data == 12){
+            // packet_loss()
             if(isPacketLoss == false){
                 packetLossNum = rcv_data;
                 isPacketLoss = true;

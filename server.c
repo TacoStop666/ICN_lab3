@@ -21,9 +21,9 @@
  * 3. cwnd: congestion window size
 */
 
-extern bool packet_loss();
+int packetLossDetected = false;
+int duplicate_ack_num = 0;
 
-// *last_acked = 2
 void server_send(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
     int data = *last_acked; 
 
@@ -34,13 +34,15 @@ void server_send(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
     }
 
     for (int i = 0; i < *cwnd; ++i) {
-        if (!packet_loss()) {
-            data++; 
-            printf("Send: seq_num = %d\n", data);
-            send(client_fd, &data, sizeof(data), 0); 
-        } else {
-            printf("Packet loss simulated for sequence %d\n", data + 1); 
-            data++; 
+        if(packetLossDetected == true){
+            printf("Send: seq_num = %d\n", duplicate_ack_num);
+            send(client_fd, &duplicate_ack_num, sizeof(duplicate_ack_num), 0); 
+        } else{
+            if (!packet_loss()) {
+                data++; 
+                printf("Send: seq_num = %d\n", data);
+                send(client_fd, &data, sizeof(data), 0); 
+            }
         }
     }
 
@@ -75,17 +77,24 @@ void server_receive(int client_fd, int *cwnd, int *ssthresh, int *last_acked) {
         printf("ACK: ack_num = %d\n", ack);
 
         if(ack == prev_ack){
+            duplicate_ack_num = ack;
             duplicate_acks++;
-            if(duplicate_acks == 2){
+            if(duplicate_acks == 3){
+                packetLossDetected = true;
                 printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", ack, *ssthresh);
             }
         } else{
             duplicate_acks = 0;
         }
         prev_ack = ack;
-        // *last_acked = ack;
     }
-    *cwnd  = *cwnd * 2;
+    if(packetLossDetected == true){
+        *cwnd = 1;
+        *ssthresh /= 2; 
+    } else{
+        *cwnd *= 2;
+    }
+
 }
 
 /*
@@ -141,7 +150,7 @@ int main(int argc, char* argv[]) {
     int ssthresh = SSTHRESH;
     int last_acked = 2;
 
-    for(int i = 0;i<2;i++){
+    for(int i = 0;i<3;i++){
         server_send(clientfd, &cwnd, &ssthresh, &last_acked);
         server_receive(clientfd, &cwnd, &ssthresh, &last_acked);
     }
