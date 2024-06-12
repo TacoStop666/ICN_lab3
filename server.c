@@ -25,33 +25,20 @@ int cwnd = 4;
 int ssthresh = 8;
 int last_acked = 3;
 
-
-int packetLossDetected = false;
-int duplicate_ack_num = 0;
-
 void server_send(int client_fd) {
-    int data = last_acked; 
-
     if(cwnd < ssthresh){
-        printf("State: slow start (cwnd = %d), ssthresh = %d\n", cwnd, ssthresh);
+        printf("State: slow start (cwnd = %d, ssthresh = %d)\n", cwnd, ssthresh);
     } else{
-        printf("State: congestion avoidance (cwnd = %d), ssthresh = %d\n", cwnd, ssthresh);
+        printf("State: congestion avoidance (cwnd = %d, ssthresh = %d)\n", cwnd, ssthresh);
     }
 
-    for (int i = 0; i < cwnd; ++i) {
-        if(packetLossDetected == true){
-            printf("Send: seq_num = %d\n", duplicate_ack_num);
-            send(client_fd, &duplicate_ack_num, sizeof(duplicate_ack_num), 0); 
-        } else{
-            if (!packet_loss()) {
-                data++; 
-                printf("Send: seq_num = %d\n", data);
-                send(client_fd, &data, sizeof(data), 0); 
-            }
-        }
+    for (int i = 0;i<cwnd;i++) {
+        Segment seg;
+        seg.seq_num = last_acked + i;
+        seg.loss = packet_loss();
+        printf("Send: seq_num = %u\n", seg.seq_num);
+        send(client_fd, &seg, sizeof(seg), 0);
     }
-
-    last_acked = data;
 }
 
 /*
@@ -73,33 +60,45 @@ void server_send(int client_fd) {
  * 3. ssthresh: slow start threshold
  * 4. cwnd: congestion window size
 */
+
+bool is_duplicate = false;
+int duplicate_acks = 0;
+
 void server_receive(int client_fd) {
-    int ack, duplicate_acks = 0;
+
     int prev_ack;
 
-    for (int i = 0; i < cwnd; ++i) {
-        ssize_t bytes_received = recv(client_fd, &ack, sizeof(ack), 0);
-        printf("ACK: ack_num = %d\n", ack);
+    for(int i = 0;i<cwnd;i++){
+        Segment seg;
+        ssize_t bytes_received = recv(client_fd, &seg, sizeof(seg), 0);
+        printf("ACK: ack_num = %u\n", seg.ack_num);
 
-        if(ack == prev_ack){
-            duplicate_ack_num = ack;
+        if(i == cwnd - 1){
+            last_acked = seg.ack_num;
+        }
+
+        if(seg.ack_num == prev_ack && seg.loss == true){
             duplicate_acks++;
-            if(duplicate_acks == 3){
-                packetLossDetected = true;
-                printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", ack, ssthresh);
+            if(duplicate_acks == 2){
+                is_duplicate = true;
+                printf("3 duplicate ACKs : ACK_num = %d, ssthresh = %d\n", prev_ack, ssthresh);
             }
         } else{
             duplicate_acks = 0;
         }
-        prev_ack = ack;
-    }
-    if(packetLossDetected == true){
-        cwnd = 1;
-        ssthresh /= 2; 
-    } else{
-        cwnd *= 2;
+
+        prev_ack = seg.ack_num;
     }
 
+    if(is_duplicate == true){
+        is_duplicate = false;
+        cwnd = 1;
+        ssthresh /= 2;
+    } else if(cwnd < ssthresh){
+        cwnd *= 2;
+    } else{
+        cwnd += 1;
+    }
 }
 
 /*
@@ -152,7 +151,7 @@ int main(int argc, char* argv[]) {
 
     // Start congestion control
 
-    for(int i = 0;i<3;i++){
+    for(int i = 0;i<5;i++){
         server_send(clientfd);
         server_receive(clientfd);
     }

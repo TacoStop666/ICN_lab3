@@ -37,31 +37,36 @@ int main(int argc , char *argv[]){
     printf("%s", recv_msg);
 
     // Receive data and send ACK.
-    bool isPacketLoss = false;
-    int rcv_data;
-    int ack = 0;
-    int packetLossNum;
+    bool is_packet_loss = false;
+    int packet_loss_num;
 
     while(1){
-        ssize_t data_received = recv(sockfd, &rcv_data, sizeof(rcv_data), 0);  
-        if(rcv_data == 7 || rcv_data == 12){
-            // packet_loss()
-            if(isPacketLoss == false){
-                packetLossNum = rcv_data;
-                isPacketLoss = true;
-                send(sockfd, &rcv_data, sizeof(rcv_data), 0);   
+        Segment seg;
+        ssize_t data_received = recv(sockfd, &seg, sizeof(seg), 0);  
+        if(seg.loss){
+            if(is_packet_loss){
+                seg.ack_num = packet_loss_num;              
             } else{
-                send(sockfd, &packetLossNum, sizeof(packetLossNum), 0);
-            }        
-            printf("Loss: seq_num: %d\n", rcv_data);   
-        } else{
-            ack = rcv_data + 1;
-            printf("Received: seq_num = %d\n", rcv_data);
-            if(isPacketLoss == true){
-                send(sockfd, &packetLossNum, sizeof(packetLossNum), 0);
-            } else{
-                send(sockfd, &ack, sizeof(ack), 0);
+                is_packet_loss = true;
+                packet_loss_num = seg.seq_num;
+                seg.ack_num = seg.seq_num;
             }
+            printf("Loss: seq_num = %u\n", seg.seq_num);
+            send(sockfd, &seg, sizeof(seg), 0);
+        } else{
+            if(is_packet_loss){
+                if(packet_loss_num == seg.seq_num){
+                    is_packet_loss = false;
+                    seg.ack_num = seg.seq_num + 1;                    
+                } else{
+                    seg.ack_num = packet_loss_num;
+                }
+                seg.ack_num = packet_loss_num;
+            } else{
+                seg.ack_num = seg.seq_num + 1;
+            }
+            printf("Received: seq_num = %u\n", seg.seq_num);
+            send(sockfd, &seg, sizeof(seg), 0);
         }
     }
 
