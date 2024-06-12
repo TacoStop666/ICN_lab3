@@ -38,7 +38,8 @@ int main(int argc , char *argv[]){
 
     // Receive data and send ACK.
     bool is_packet_loss = false;
-    int packet_loss_num;
+    int packet_loss_num = 1;
+    int last_packet_recv = 1;
 
     while(1){
         Segment seg;
@@ -57,11 +58,11 @@ int main(int argc , char *argv[]){
             if(is_packet_loss){
                 if(packet_loss_num == seg.seq_num){
                     is_packet_loss = false;
-                    seg.ack_num = seg.seq_num + 1;                    
+                    seg.ack_num = last_packet_recv + 1;                    
                 } else{
+                    last_packet_recv = seg.seq_num;
                     seg.ack_num = packet_loss_num;
                 }
-                seg.ack_num = packet_loss_num;
             } else{
                 seg.ack_num = seg.seq_num + 1;
             }

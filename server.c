@@ -21,9 +21,9 @@
  * 3. cwnd: congestion window size
 */
 
-int cwnd = 4;
+int cwnd = 1;
 int ssthresh = 8;
-int last_acked = 3;
+int last_acked = 1;
 
 void server_send(int client_fd) {
     if(cwnd < ssthresh){
@@ -77,7 +77,7 @@ void server_receive(int client_fd) {
             last_acked = seg.ack_num;
         }
 
-        if(seg.ack_num == prev_ack && seg.loss == true){
+        if(seg.ack_num == prev_ack){
             duplicate_acks++;
             if(duplicate_acks == 2){
                 is_duplicate = true;
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
 
     // Start congestion control
 
-    for(int i = 0;i<5;i++){
+    for(int i = 0;i<15;i++){
         server_send(clientfd);
         server_receive(clientfd);
     }
