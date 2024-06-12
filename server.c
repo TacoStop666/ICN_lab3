@@ -67,16 +67,13 @@ int duplicate_acks = 0;
 void server_receive(int client_fd) {
 
     int prev_ack;
-
     for(int i = 0;i<cwnd;i++){
         Segment seg;
         ssize_t bytes_received = recv(client_fd, &seg, sizeof(seg), 0);
         printf("ACK: ack_num = %u\n", seg.ack_num);
-
         if(i == cwnd - 1){
             last_acked = seg.ack_num;
         }
-
         if(seg.ack_num == prev_ack){
             duplicate_acks++;
             if(duplicate_acks == 2){
@@ -86,14 +83,13 @@ void server_receive(int client_fd) {
         } else{
             duplicate_acks = 0;
         }
-
         prev_ack = seg.ack_num;
     }
 
     if(is_duplicate == true){
         is_duplicate = false;
+        ssthresh = cwnd / 2;
         cwnd = 1;
-        ssthresh /= 2;
     } else if(cwnd < ssthresh){
         cwnd *= 2;
     } else{
